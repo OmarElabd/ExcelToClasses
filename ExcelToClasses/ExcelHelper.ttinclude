@@ -1,0 +1,23 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ assembly name="System.Data" #> 
+<#@ assembly name="System.Configuration" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="$(SolutionDir)\Packages\ExcelToClasses.1.0.1\lib\ExcelLibrary.dll" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="ExcelLibrary" #>
+<#+
+    public static class ExcelHelper
+    {
+        public static DataTable ExcelToDataTable(string excelPath)
+        {
+            DataSet ds = DataSetHelper.CreateDataSet(excelPath);
+            return ds.Tables[0];
+        }
+
+        public static DataSet ExcelToDataSet(string excelPath)
+        {
+            return DataSetHelper.CreateDataSet(excelPath);
+        }
+    }
+#>

@@ -1,0 +1,31 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #>
+<#@ assembly Name="EnvDTE" #>
+<#@ Import Namespace="EnvDTE" #>
+<#@ Import Namespace="System.IO" #>
+<#@ include file="T4FileGenerator.ttinclude" #>
+<#+
+    public void ProcessContent(string outputFileName, string content)
+    {
+        string templateDirectory = Path.GetDirectoryName(Host.TemplateFile);
+        string outputFilePath = Path.Combine(templateDirectory, outputFileName);
+        string outputDirectoryPath = Path.GetDirectoryName(outputFilePath);        
+
+        if(!Directory.Exists(outputDirectoryPath))
+        {
+            Directory.CreateDirectory(outputDirectoryPath);
+        }
+
+        File.WriteAllText(outputFilePath, content);
+
+        IServiceProvider hostServiceProvider = (IServiceProvider)Host;
+        EnvDTE.DTE dte = (EnvDTE.DTE)hostServiceProvider.GetService(typeof(EnvDTE.DTE));
+        ProjectItem containingProjectItem = dte.Solution.FindProjectItem(Host.TemplateFile);
+        containingProjectItem.ProjectItems.AddFromFile(outputFilePath);
+    }
+
+    public void CreateFile(string fileName)
+    {
+        ProcessContent(fileName, this.GenerationEnvironment.ToString());
+        this.GenerationEnvironment.Remove(0, this.GenerationEnvironment.Length);
+    }
+#>

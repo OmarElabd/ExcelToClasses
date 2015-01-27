@@ -1,0 +1,212 @@
+﻿<#@ template debug="false" hostspecific="true" language="C#" #><##>
+<#@ Assembly Name="System.Core" #><##>
+<#@ import namespace="System" #><##>
+<#@ import namespace="System.IO" #><##>
+<#@ import namespace="System.Diagnostics" #><##>
+<#@ import namespace="System.Linq" #><##>
+<#@ import namespace="System.Collections" #><##>
+<#@ import namespace="System.Collections.Generic" #><##>
+<#@ include file="ExcelHelper.ttinclude" #><##>
+<#@ include file="T4FileGenerator.ttinclude" #><##>
+<#@ output extension=".cs" #><##>
+<#
+    //add as many input paths as you like.
+    List<string> filePaths = new List<string>{ @"(YOUR PATH HERE).XLS" };
+#>
+using System;
+
+class DisplayColumnAttribute : Attribute
+{
+    public string DisplayName { get; set; }
+    public uint DisplayOrder { get; set; }
+
+    public DisplayColumnAttribute(string displayName, uint displayOrder = 0)
+    {
+        DisplayName = displayName;
+        DisplayOrder = displayOrder;
+    }
+}
+
+class DisplayTableAttribute : Attribute
+{
+    public string Display { get; set; }
+
+    public DisplayTableAttribute(string display)
+    {
+        Display = display;
+    }
+}
+<#CreateFile("DataSetAnnotations.cs");#>
+<#
+    foreach(string path in filePaths)
+    {
+        File.SetAttributes(path, FileAttributes.Normal);
+
+        DataSet ds = ExcelHelper.ExcelToDataSet(path);
+        foreach(DataTable dt in ds.Tables)
+        {
+#>
+using System;
+
+[DisplayTable("<#=dt.TableName#>")]
+public class <#= SanitizeTableName(dt.TableName)#>
+{
+<#  foreach(DataColumn dc in dt.Columns)
+{#>
+    [DisplayColumn("<#=dc.ColumnName#>", <#=dc.Ordinal#>)]
+    public <#= dc.DataType #> <#= SanitizeColumnName(dc.ColumnName) #> { get; set; }
+<#}#>
+}
+<#CreateFile(SanitizeTableName(dt.TableName) + ".cs");#>
+<#
+        }
+    }
+#>
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Reflection;
+
+public static class DataTableHelper
+{
+    //Convert Collection to DataTable (Not including List Properties)
+    public static DataTable ToDataTable<T>(IEnumerable<T> collection)
+    {
+        Type t = typeof(T);
+
+        string tableName = GetTableName(t);
+
+        DataTable dt = new DataTable(tableName);
+        List<PropertyInfo> properties = t.GetProperties()
+                                        .Where(p => !p.PropertyType.FullName.Contains("Generic.List"))
+                                        .OrderBy(o => o.GetCustomAttributes(false).OfType<DisplayColumnAttribute>().First().DisplayOrder)
+                                        .ToList();
+
+        //Inspect the properties and create the columns in the DataTable
+        foreach (PropertyInfo pi in properties)
+        {
+            string columnName = GetColumnName(pi);
+
+            Type columnType = pi.PropertyType;
+            if ((columnType.IsGenericType))
+            {
+                columnType = columnType.GetGenericArguments()[0];
+            }
+            dt.Columns.Add(columnName, columnType);
+        }
+
+        //Populate the data table
+        foreach (T item in collection)
+        {
+            DataRow dr = dt.NewRow();
+            dr.BeginEdit();
+            foreach (PropertyInfo pi in properties)
+            {
+                string columnName = GetColumnName(pi);
+
+                if (pi.GetValue(item, null) != null)
+                {
+                    dr[columnName] = pi.GetValue(item, null);
+                }
+            }
+            dr.EndEdit();
+            dt.Rows.Add(dr);
+        }
+        return dt;
+    }
+
+    private static string GetColumnName(PropertyInfo pi)
+    {
+        string columnName = pi.Name.ToUpper();
+
+        var columnAttr = (DisplayColumnAttribute)pi.GetCustomAttributes(false)
+                            .FirstOrDefault(x => x.GetType() == typeof(DisplayColumnAttribute));
+
+        if (columnAttr != null)
+        {
+            columnName = columnAttr.DisplayName;
+        }
+
+        return columnName;
+    }
+
+    private static string GetTableName(Type t)
+    {
+        var tableAttr = (DisplayTableAttribute)t.GetCustomAttributes(false)
+                        .FirstOrDefault(x => x.GetType() == typeof(DisplayTableAttribute));
+
+        string tableName = "Table";
+        if (tableAttr != null)
+        {
+            tableName = tableAttr.Display;
+        }
+
+        return tableName;
+    }
+}
+<#CreateFile("DataHelper.cs");#>
+using System.Data;
+using System.IO;
+using ExcelLibrary;
+using OfficeOpenXml;
+
+public static class ExcelHelper
+{
+    public static DataTable ExcelToDataTable(string excelPath)
+    {
+        DataSet ds = DataSetHelper.CreateDataSet(excelPath);
+        return ds.Tables[0];
+    }
+
+    public static DataSet ExcelToDataSet(string excelPath)
+    {
+        return DataSetHelper.CreateDataSet(excelPath);
+    }
+
+    public static void DataTableToExcel(DataTable dt, string path)
+    {
+        DataSet ds = new DataSet();
+        ds.Tables.Add(dt);
+        DataSetHelper.CreateWorkbook(path, ds);
+    }
+
+    public static void DataSetToExcel(DataSet ds, string path)
+    {
+        //DataSetHelper.CreateWorkbook(path, ds);
+        FileInfo file = new FileInfo(path);
+
+        using (ExcelPackage pck = new ExcelPackage(file))
+        {
+            foreach (DataTable dataTable in ds.Tables)
+            {
+                ExcelWorksheet ws = pck.Workbook.Worksheets.Add(dataTable.TableName);
+                ws.Cells["A1"].LoadFromDataTable(dataTable, true);
+                var range = ExcelRange.GetAddress(1, 1, dataTable.Rows.Count+1, dataTable.Columns.Count);
+                pck.Workbook.Names.Add(dataTable.TableName, ws.Cells[range]);
+            }
+            pck.Save();    
+        }
+    }
+}
+<#CreateFile("ExcelHelper.cs");#>
+<#+
+    public static string SanitizeTableName(string tableName)
+    {
+        string sanitized = tableName;
+        sanitized = FirstCharToUpper(sanitized);
+        return sanitized.Replace("_", "");
+    }
+
+    public static string SanitizeColumnName(string tableName)
+    {
+        string sanitized = tableName.ToLower();
+        sanitized = FirstCharToUpper(sanitized);
+        return sanitized.Replace("_", "");
+    }
+
+    private static string FirstCharToUpper(string input)
+    {
+        return input.First().ToString().ToUpper() + input.Substring(1);
+    }
+#>
