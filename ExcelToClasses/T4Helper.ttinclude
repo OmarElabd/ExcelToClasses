@@ -2,7 +2,7 @@
 <#@ assembly Name="EnvDTE" #>
 <#@ Import Namespace="EnvDTE" #>
 <#@ Import Namespace="System.IO" #>
-<#@ include file="T4FileGenerator.ttinclude" #>
+<#@ import namespace="System.Globalization" #>
 <#+
     public void ProcessContent(string outputFileName, string content)
     {
@@ -27,5 +27,15 @@
     {
         ProcessContent(fileName, this.GenerationEnvironment.ToString());
         this.GenerationEnvironment.Remove(0, this.GenerationEnvironment.Length);
+    }
+
+    public static string SanitizeString(string strToSanitize)
+    {
+        string sanitizedString = strToSanitize.ToLower();
+        sanitizedString = sanitizedString.Replace("_", " ");
+        TextInfo ti = CultureInfo.CurrentCulture.TextInfo;
+        sanitizedString = ti.ToTitleCase(sanitizedString);
+        sanitizedString = sanitizedString.Replace(" ", "");
+        return sanitizedString;
     }
 #>
