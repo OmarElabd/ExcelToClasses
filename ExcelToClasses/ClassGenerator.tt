@@ -15,7 +15,7 @@
 <#@ output extension=".cs" #>
 <#
     //add as many input paths as you like.
-    List<string> filePaths = new List<string>{ @"C:\Users\Arel\Documents\visual studio 2013\Projects\ExcelToClasses\ClassLibrary1\Book1.XLS" };
+	List<string> filePaths = new List<string>{ @"(YOUR FILE PATH HERE).XLS" };
 #>
 using System;
 
