@@ -1,5 +1,8 @@
 # ExcelToClasses
-Generate c# classes from worksheet headers inside an excel workbook (.xls). Useful for data conversion projects.
+Generate C# classes from worksheet headers inside an excel workbook (.xls). Useful for data conversion projects.
+
+#Get It Here
+https://www.nuget.org/packages/ExcelToClasses/
 
 #Usage:
 Please modify ClassGenerator.tt with the file path to your excel file.
