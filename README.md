@@ -1,4 +1,4 @@
-# ExcelToClasses
+# Excel To Classes
 Generate C# classes from worksheet headers inside an excel workbook (.xls). Useful for data conversion projects.
 
 #Get It Here
